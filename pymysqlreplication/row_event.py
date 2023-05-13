@@ -109,6 +109,7 @@ class RowsEvent(BinLogEvent):
             name = self.table_map[self.table_id].columns[i].name
             unsigned = self.table_map[self.table_id].columns[i].unsigned
             zerofill = self.table_map[self.table_id].columns[i].zerofill
+            fixed_binary_length = self.table_map[self.table_id].columns[i].fixed_binary_length
 
             if BitGet(cols_bitmap, i) == 0:
                 values[name] = None
@@ -154,6 +155,12 @@ class RowsEvent(BinLogEvent):
                     values[name] = self.__read_string(2, column)
                 else:
                     values[name] = self.__read_string(1, column)
+
+                if fixed_binary_length:
+                    if len(values[name]) < fixed_binary_length:
+                        nr_pad = fixed_binary_length - len(values[name])
+                        values[name] += b'\x00' * nr_pad
+
             elif column.type == FIELD_TYPE.NEWDECIMAL:
                 values[name] = self.__read_new_decimal(column)
             elif column.type == FIELD_TYPE.BLOB:
@@ -612,6 +619,8 @@ class TableMapEvent(BinLogEvent):
             self.column_schemas = table_map[self.table_id].column_schemas
         else:
             self.column_schemas = self._ctl_connection._get_table_information(self.schema, self.table)
+
+        #print(self.column_schemas)
 
         ordinal_pos_loc = 0
 
